@@ -3,9 +3,7 @@ import json
 import os
 import logging
 import re
-import subprocess
 import sys
-import platform
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +98,7 @@ class Environment(object):
 
     def initialize(self):
         packageFiles = "*.env"
-        envLocation = os.environ["ZOOTOOLS_ENV"]
+        envLocation = os.environ["RESOLVER_ENV"]
         if envLocation:
             packageFiles = envLocation + "/" + packageFiles
         possibles = [Package(filename, self) for filename in glob.glob(packageFiles)]
@@ -181,59 +179,9 @@ class Environment(object):
 
 def packages():
     packageFiles = "*.env"
-    envLocation = os.environ["ZOOTOOLS_ENV"]
+    envLocation = os.environ["RESOLVER_ENV"]
 
     if envLocation:
         packageFiles = os.path.join(envLocation, packageFiles)
     possibles = [Package(filename, None) for filename in glob.glob(packageFiles)]
     return [i.name for i in possibles]
-
-
-def launchTests(requests):
-    env = Environment(requests)
-    env.initialize()
-    env.solve(setEnvironment=False)
-    runnerPath = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "tests", "runtests.py"))
-    tested = []
-    for name, tool in env.packages.items():
-        if tool.hasTests and tool not in tested:
-            rootpath = tool.path
-            testPath = os.path.join(rootpath, "tests")
-            if not os.path.exists(testPath):
-                continue
-            if platform.system().lower() == 'windows':
-                subprocess.call(["python", runnerPath, "--package {}".format(), "--root {}".format(testPath)],
-                                shell=True)
-            else:
-                subprocess.call(["python", runnerPath, "--root {}".format(testPath)])
-            tested.append(tested)
-
-
-def main():
-    import argparse
-
-    logger.addHandler(logging.StreamHandler())
-    logger.setLevel(logging.INFO)
-    location = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
-    os.environ["PYTHONPATH"] = location + os.pathsep
-    os.environ["ZOOTOOLS_ROOT"] = location
-    os.environ["ZOOTOOLS_ENV"] = os.path.join(location, "env")
-
-    sys.path.append(location)
-    parser = argparse.ArgumentParser(description="Maya unittest runner")
-    parser.add_argument("-p", "--packages", type=str, default="zootools_private")
-    parser.add_argument("-t", "--tests", type=bool)
-    args = parser.parse_args()
-    if args.packages:
-        requests = args.packages.split(",")
-        if args.tests:
-            launchTests(requests)
-        else:
-            env = Environment(requests)
-            env.initialize()
-            env.solve()
-
-
-if __name__ == "__main__":
-    main()
