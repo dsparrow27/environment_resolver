@@ -33,7 +33,7 @@ class Variable(object):
                 if vd not in self.dependencies:
                     self.dependencies.append(vd)
             if os.path.isfile(i) or os.path.isdir(i):
-                i = os.path.abspath(os.path.realpath(i))
+                i = os.path.normpath(os.path.realpath(i))
             values.append(i)
         self.path = os.pathsep.join(list(set([i for i in values if i])))
 
@@ -62,6 +62,7 @@ class Variable(object):
         if failed:
             logger.warning("Failed to find tokens: {} for {}\n{}".format(",".join(failed), self.name, (kwargs,
                                                                                                        self.dependencies)))
+
         self.path = newStr
 
         return newStr
@@ -100,9 +101,11 @@ class Environment(object):
         packageFiles = "*.env"
         envLocation = os.environ["RESOLVER_ENV"]
         if envLocation:
-            packageFiles = envLocation + "/" + packageFiles
+            packageFiles = envLocation + os.altsep + packageFiles
         possibles = [Package(filename, self) for filename in glob.glob(packageFiles)]
         count = 0
+        if not possibles:
+            raise ValueError("Failed to find possible package files in directory {}".format(packageFiles))
         while self.requested or count < 256:
             for package in possibles:
                 if package.name in self.requested:
@@ -132,7 +135,6 @@ class Environment(object):
         for p in self.packages.values():
             self._solve(p.path)
             logger.info("{}".format(p))
-        print self.variables
 
     def processPackageVariables(self, package):
         for k, value in package.variables.items():
@@ -174,7 +176,7 @@ class Environment(object):
                 if name == "PYTHONPATH":
                     for i in path.split(os.pathsep):
                         if i not in sys.path:
-                            sys.path.append(i)
+                            sys.path.append(os.path.normpath(i))
 
 
 def packages():
